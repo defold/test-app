@@ -37,11 +37,11 @@ jobs:
     runs-on: macos-latest
     needs: [variables]
 
-	defaults:
+    defaults:
       run:
         working-directory: ${{ env.DEFOLD_GAME_DIRECTORY }}
 
-	strategy:
+    strategy:
       matrix:
         os: [Android, iOS]
         include:
@@ -126,7 +126,7 @@ jobs:
         id: short-commit-sha
         run: echo "::set-output name=sha::$(git rev-parse --short ${{ github.sha }})"
 
-	  - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.os }}_commit_${{ steps.short-commit-sha.outputs.sha }}
           path: ${{ env.DEFOLD_GAME_DIRECTORY }}/build/default/${{matrix.bundlePath}}
