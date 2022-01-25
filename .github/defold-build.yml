@@ -1,0 +1,132 @@
+name: Build Defold Android & iOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      BRANCH:
+        description: "Branch to build"
+        required: true
+        default: "main"
+
+      DEFOLD_VERSION_SHA:
+        description: "Defold SHA1"
+        required: false
+        default: "6bfeea3b13d7b8920483ea2cba9c181a8650b84d"
+
+      DEFOLD_BUILD_SERVER:
+        description: "Build server URL"
+        required: false
+        default: "https://build.defold.com"
+
+env:
+  DEFOLD_GAME_TITLE: TestApp
+  DEFOLD_GAME_DIRECTORY: . # '.' if root or './GameName' if in directory
+
+jobs:
+  variables:
+    name: Set variables
+    runs-on: ubuntu-latest
+    outputs:
+      DEFOLD_GAME_TITLE: ${{ env.DEFOLD_GAME_TITLE }}
+    steps:
+      - name: Global Environment variables
+        run: echo "This is an empty step for a valid structure job"
+
+  build_and_bundle:
+    name: Build
+    runs-on: macos-latest
+    needs: [variables]
+
+	defaults:
+      run:
+        working-directory: ${{ env.DEFOLD_GAME_DIRECTORY }}
+
+	strategy:
+      matrix:
+        os: [Android, iOS]
+        include:
+          - os: Android
+            platform: armv7-android
+            bundlePath: ${{ needs.variables.outputs.DEFOLD_GAME_TITLE }}/${{ needs.variables.outputs.DEFOLD_GAME_TITLE }}.apk
+          - os: iOS
+            platform: armv7-darwin
+            bundlePath: ${{ needs.variables.outputs.DEFOLD_GAME_TITLE }}.ipa
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.inputs.BRANCH }}
+
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '11.0.2'
+
+      - name: Download bob.jar
+        run: |
+          wget -q http://d.defold.com/archive/stable/${{ github.event.inputs.DEFOLD_VERSION_SHA }}/bob/bob.jar
+          java -jar bob.jar --version
+
+      - name: Install the Apple certificate and provisioning profile
+        id: apple
+        if: ${{ matrix.os == 'iOS' }}
+        env:
+          MACOS_BUILD_CERTIFICATE_BASE64: ${{ secrets.MACOS_BUILD_CERTIFICATE_BASE64 }}
+          MACOS_BUILD_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_BUILD_CERTIFICATE_PASSWORD }}
+          MACOS_BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.MACOS_BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: rAnDom_PaSsWord_09_@#
+        run: |
+          # create variables
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # import certificate and provisioning profile from secrets
+          echo -n "$MACOS_BUILD_CERTIFICATE_BASE64" | base64 --decode --output $CERTIFICATE_PATH
+          echo -n "$MACOS_BUILD_PROVISION_PROFILE_BASE64" | base64 --decode --output $PP_PATH
+
+          # create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # import certificate to keychain
+          security import $CERTIFICATE_PATH -P "$MACOS_BUILD_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # apply provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
+          echo "::set-output name=identity::$(security find-identity -v -p codesigning | grep '1)' | sed -e 's/  1) //' | sed 's/ .*//')"
+          echo "::set-output name=mobileprovision::~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision"
+
+      - name: Bob bundle flags
+        id: bob
+        run: |
+          FLAGS+=$([[ ${{ matrix.os }} = iOS ]] && echo ' --identity ${{ steps.apple.outputs.identity }} --mobileprovisioning ${{ steps.apple.outputs.mobileprovision }}' || echo)
+
+          FLAGS+=$([[ ${{ matrix.os }} = Android ]] && echo ' --keystore debug.keystore --keystore-pass debug.keystore.pass.txt --keystore-alias androiddebugkey' || echo)
+
+          echo "::set-output name=flags::$FLAGS"
+
+      - name: Resolve libraries
+        run: java -jar bob.jar resolve
+
+      - name: Build
+        run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{ github.event.inputs.DEFOLD_BUILD_SERVER }}
+
+      - name: Bundle
+        run: java -jar bob.jar --platform=${{ matrix.platform }} ${{ steps.bob.outputs.flags }} bundle
+
+      - name: Show files
+        run: |
+          ls -l build
+          ls -l build/default
+
+      - name: Get short commit sha
+        id: short-commit-sha
+        run: echo "::set-output name=sha::$(git rev-parse --short ${{ github.sha }})"
+
+	  - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.os }}_commit_${{ steps.short-commit-sha.outputs.sha }}
+          path: ${{ env.DEFOLD_GAME_DIRECTORY }}/build/default/${{matrix.bundlePath}}
