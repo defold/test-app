@@ -1,0 +1,8 @@
+function init(self)
+	local info = sys.get_sys_info()
+	local s = ""
+	for k,v in pairs(info) do
+		s = s .. k .. " = " .. v .. "\n"
+	end
+	label.set_text("#label", s)
+end
