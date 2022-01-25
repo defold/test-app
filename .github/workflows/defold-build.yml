@@ -47,10 +47,10 @@ jobs:
         include:
           - os: Android
             platform: armv7-android
-            bundlePath: ${{ needs.variables.outputs.DEFOLD_GAME_TITLE }}/${{ needs.variables.outputs.DEFOLD_GAME_TITLE }}.apk
+            BUNDLE_PATH: ${{ needs.variables.outputs.DEFOLD_GAME_TITLE }}/${{ needs.variables.outputs.DEFOLD_GAME_TITLE }}.apk
           - os: iOS
             platform: armv7-darwin
-            bundlePath: ${{ needs.variables.outputs.DEFOLD_GAME_TITLE }}.ipa
+            BUNDLE_PATH: ${{ needs.variables.outputs.DEFOLD_GAME_TITLE }}.ipa
     steps:
       - uses: actions/checkout@v2
         with:
@@ -96,17 +96,15 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
 
-          echo "::set-output name=identity::$(security find-identity -v -p codesigning | grep '1)' | sed -e 's/  1) //' | sed 's/ .*//')"
-          echo "::set-output name=mobileprovision::~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision"
+          echo "::set-output name=IDENTITY::$(security find-identity -v -p codesigning | grep '1)' | sed -e 's/  1) //' | sed 's/ .*//')"
+          echo "::set-output name=MOBILEPROVISION::~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision"
 
       - name: Bob bundle flags
-        id: bob
+        id: bob-flags
         run: |
-          FLAGS+=$([[ ${{ matrix.os }} = iOS ]] && echo ' --identity ${{ steps.apple.outputs.identity }} --mobileprovisioning ${{ steps.apple.outputs.mobileprovision }}' || echo)
-
-          FLAGS+=$([[ ${{ matrix.os }} = Android ]] && echo ' ' || echo)
-
-          echo "::set-output name=flags::$FLAGS"
+          flags+=$([[ ${{ matrix.os }} = iOS ]] && echo ' --identity ${{ steps.apple.outputs.IDENTITY }} --mobileprovisioning ${{ steps.apple.outputs.MOBILEPROVISION }}' || echo)
+          flags+=$([[ ${{ matrix.os }} = Android ]] && echo ' ' || echo)
+          echo "::set-output name=FLAGS::$flags"
 
       - name: Resolve libraries
         run: java -jar bob.jar resolve
@@ -115,7 +113,7 @@ jobs:
         run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{ github.event.inputs.DEFOLD_BUILD_SERVER }}
 
       - name: Bundle
-        run: java -jar bob.jar --platform=${{ matrix.platform }} ${{ steps.bob.outputs.flags }} bundle
+        run: java -jar bob.jar --platform=${{ matrix.platform }} ${{ steps.bob-flags.outputs.FLAGS }} bundle
 
       - name: Show files
         run: |
@@ -124,9 +122,9 @@ jobs:
 
       - name: Get short commit sha
         id: short-commit-sha
-        run: echo "::set-output name=sha::$(git rev-parse --short ${{ github.sha }})"
+        run: echo "::set-output name=SHA::$(git rev-parse --short ${{ github.sha }})"
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.os }}_commit_${{ steps.short-commit-sha.outputs.sha }}
-          path: ${{ env.DEFOLD_GAME_DIRECTORY }}/build/default/${{matrix.bundlePath}}
+          name: ${{ matrix.platform }}_${{ github.sha }}
+          path: ${{ env.DEFOLD_GAME_DIRECTORY }}/build/default/${{matrix.BUNDLE_PATH}}
