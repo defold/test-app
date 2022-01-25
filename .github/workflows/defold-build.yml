@@ -62,7 +62,7 @@ jobs:
 
       - name: Download bob.jar
         run: |
-          wget -q http://d.defold.com/archive/stable/${{ github.event.inputs.DEFOLD_VERSION_SHA }}/bob/bob.jar
+          wget -q http://d.defold.com/archive/${{ github.event.inputs.DEFOLD_VERSION_SHA }}/bob/bob.jar
           java -jar bob.jar --version
 
       - name: Install the Apple certificate and provisioning profile
