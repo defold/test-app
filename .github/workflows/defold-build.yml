@@ -99,18 +99,18 @@ jobs:
           echo "::set-output name=IDENTITY::$(security find-identity -v -p codesigning | grep '1)' | sed -e 's/  1) //' | sed 's/ .*//')"
           echo "::set-output name=MOBILEPROVISION::~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision"
 
-      - name: Bob bundle flags
-        id: bob-flags
-        run: |
-          flags+=$([[ ${{ matrix.os }} = iOS ]] && echo ' --identity ${{ steps.apple.outputs.IDENTITY }} --mobileprovisioning ${{ steps.apple.outputs.MOBILEPROVISION }}' || echo)
-          flags+=$([[ ${{ matrix.os }} = Android ]] && echo ' ' || echo)
-          echo "::set-output name=FLAGS::$flags"
-
       - name: Resolve libraries
         run: java -jar bob.jar resolve
 
       - name: Build
         run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{ github.event.inputs.DEFOLD_BUILD_SERVER }}
+
+      - name: Set bundle flags
+        id: bob-flags
+        run: |
+          flags+=$([[ ${{ matrix.os }} = iOS ]] && echo ' --identity ${{ steps.apple.outputs.IDENTITY }} --mobileprovisioning ${{ steps.apple.outputs.MOBILEPROVISION }}' || echo)
+          flags+=$([[ ${{ matrix.os }} = Android ]] && echo ' ' || echo)
+          echo "::set-output name=FLAGS::$flags"
 
       - name: Bundle
         run: java -jar bob.jar --platform=${{ matrix.platform }} ${{ steps.bob-flags.outputs.FLAGS }} bundle
@@ -119,10 +119,6 @@ jobs:
         run: |
           ls -l build
           ls -l build/default
-
-      - name: Get short commit sha
-        id: short-commit-sha
-        run: echo "::set-output name=SHA::$(git rev-parse --short ${{ github.sha }})"
 
       - uses: actions/upload-artifact@v2
         with:
