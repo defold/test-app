@@ -104,7 +104,7 @@ jobs:
         run: |
           FLAGS+=$([[ ${{ matrix.os }} = iOS ]] && echo ' --identity ${{ steps.apple.outputs.identity }} --mobileprovisioning ${{ steps.apple.outputs.mobileprovision }}' || echo)
 
-          FLAGS+=$([[ ${{ matrix.os }} = Android ]] && echo ' --keystore debug.keystore --keystore-pass debug.keystore.pass.txt --keystore-alias androiddebugkey' || echo)
+          FLAGS+=$([[ ${{ matrix.os }} = Android ]] && echo ' ' || echo)
 
           echo "::set-output name=flags::$FLAGS"
 
