@@ -6,12 +6,12 @@ on:
       BRANCH:
         description: "Branch to build"
         required: true
-        default: "main"
+        default: "master"
 
       DEFOLD_VERSION_SHA:
         description: "Defold SHA1"
         required: false
-        default: "6bfeea3b13d7b8920483ea2cba9c181a8650b84d"
+        default: "9fd8ca446d0df093ef0f0a36703db20b38296c46"
 
       DEFOLD_BUILD_SERVER:
         description: "Build server URL"
