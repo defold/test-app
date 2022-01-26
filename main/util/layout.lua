@@ -8,7 +8,8 @@ function M.grid(nodes, columns, spacing, centerx, centery)
 	local size = gui.get_size(nodes[1])
 
 	-- center of grid
-	local ww, wh = window.get_size()
+	local ww = tonumber(sys.get_config("display.width"))
+	local wh = tonumber(sys.get_config("display.height"))
 	centerx = centerx or ww / 2
 	centery = centery or wh / 2
 
