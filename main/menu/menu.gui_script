@@ -14,14 +14,18 @@ function init(self)
 		local clone = gui.clone_tree(template)
 		local text = clone[hash("template/text")]
 		local button = clone[hash("template/button")]
+		gui.set_parent(button, gui.get_node("root"))
 		gui.set_id(text, id .. "/text")
 		gui.set_id(button, id .. "/button")
 		gui.set_text(text, id:upper())
 		nodes[#nodes + 1] = button
 	end
-	layout.grid(nodes, COLUMNS, SPACING)
-
 	gui.delete_node(template)
+
+	layout.grid(nodes, COLUMNS, SPACING)
+	window.set_listener(function()
+		layout.grid(nodes, COLUMNS, SPACING)	
+	end)
 end
 
 local function show_screen(id)
